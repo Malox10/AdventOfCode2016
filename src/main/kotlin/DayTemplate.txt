@@ -1,0 +1,9 @@
+fun main() {
+    val input = readResourceLines("Day.txt")
+    val output = solve(input)
+    println("$output")
+}
+
+fun solve(input: List<String>) {
+
+}
