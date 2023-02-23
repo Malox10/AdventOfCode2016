@@ -1,9 +1,14 @@
+import kotlin.system.measureTimeMillis
 import kotlin.text.StringBuilder
 
 fun main() {
-    val input = readResourceLines("Day11Test2.txt")
-    val output = findMinimumNumberOfMoves(input)
-    println("The minimum number of steps is: $output")
+    val input = readResourceLines("Day11.txt")
+
+    val time = measureTimeMillis {
+        val output = findMinimumNumberOfMoves(input)
+        println("The minimum number of steps is: $output")
+    }
+    println("Time to calculate: $time milliseconds")
 }
 
 
@@ -26,7 +31,12 @@ private fun parseFloorPlan(input: List<String>): State {
         items to index
     }
 
-    val sortedFloors = floors.sortedBy { it.second }.map { it.first }
+    val items = floors.flatMap { it.first }
+    allValidFloors = items.powerset()
+        .filter { it.isLegalFloor() }
+        .toSet()
+
+    val sortedFloors = floors.sortedBy { it.second }.map { it.first.toSet() }
     return State(sortedFloors, 0)
 }
 
@@ -72,7 +82,7 @@ fun breadthFirstSearch(statesToExplore: List<State>, stepCount: Int): Int {
         val validInElevatorItemsAndFloor = filteredItems.mapNotNull {
             //println(currentFloor)
             val floorWithRemovedItems = currentFloor - it
-            val isLegal = floorWithRemovedItems.isLegalFloor()
+            val isLegal = floorWithRemovedItems.isLegalFloorPreCalc()
             if (isLegal) it to floorWithRemovedItems else null
         }
 
@@ -81,7 +91,7 @@ fun breadthFirstSearch(statesToExplore: List<State>, stepCount: Int): Int {
             newTargetFloors.mapNotNull { targetFloorIndex ->
                 val currentTargetFloor = currentState.floors[targetFloorIndex]
                 val newTargetFloor = currentTargetFloor + elevatorItems
-                val isValid = newTargetFloor.isLegalFloor()
+                val isValid = newTargetFloor.isLegalFloorPreCalc()
                 if (!isValid) return@mapNotNull null
 
                 //create new state overriding changing the floor where we came from and target floor
@@ -112,7 +122,7 @@ fun breadthFirstSearch(statesToExplore: List<State>, stepCount: Int): Int {
 data class Item(val materialIndex: Int, val isGenerator: Boolean)
 
 data class State(
-    val floors: List<List<Item>>,
+    val floors: List<Set<Item>>,
     val currentFloorIndex: Int = 0,
 ) {
     val currentFloor get() = floors[currentFloorIndex]
@@ -134,7 +144,9 @@ data class State(
     }
 }
 
-fun List<Item>.isLegalFloor(): Boolean {
+var allValidFloors: Set<Set<Item>> = emptySet()
+fun Set<Item>.isLegalFloorPreCalc() = allValidFloors.contains(this)
+fun Set<Item>.isLegalFloor(): Boolean {
     if(!this.containsGenerators()) return true
     if(!this.containsMicrochips()) return true
 
@@ -147,5 +159,14 @@ fun List<Item>.isLegalFloor(): Boolean {
     return true
 }
 
-private fun List<Item>.containsGenerators() = this.firstOrNull { it.isGenerator } != null
-private fun List<Item>.containsMicrochips() = this.firstOrNull { !it.isGenerator } != null
+private fun Set<Item>.containsGenerators() = this.firstOrNull { it.isGenerator } != null
+private fun Set<Item>.containsMicrochips() = this.firstOrNull { !it.isGenerator } != null
+
+
+//too lazy to implement powerset myself, thanks to MarcinMoskala for providing the tailrec version :P
+fun <T> Collection<T>.powerset(): Set<Set<T>> = powerset(this, setOf(setOf()))
+
+private tailrec fun <T> powerset(left: Collection<T>, acc: Set<Set<T>>): Set<Set<T>> = when {
+    left.isEmpty() -> acc
+    else ->powerset(left.drop(1), acc + acc.map { it + left.first() })
+}
